@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Timer</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timer-container {
+            max-width: 400px;
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .time-input {
+            font-size: 2rem;
+            margin: 20px 0;
+        }
+
+        .time-input input {
+            width: 70px;
+            text-align: center;
+            font-size: 2rem;
+            margin: 0 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .timer-display {
+            font-size: 3rem;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .start {
+            background-color: #007bff;
+        }
+
+        .start:hover {
+            background-color: #0056b3;
+        }
+
+        .stop {
+            background-color: #dc3545;
+        }
+
+        .stop:hover {
+            background-color: #c82333;
+        }
+
+        .save {
+            background-color: #28a745;
+        }
+
+        .save:hover {
+            background-color: #218838;
+        }
+
+        .cancel {
+            background-color: #6c757d;
+        }
+
+        .cancel:hover {
+            background-color: #5a6268;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        table th, table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 100%;
+            text-align: left;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+
+        input[readonly] {
+            color: black;
+            background-color: lightgray;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <div class="timer-container">
+        <h1>Study Timer</h1>
+
+        <div class="time-input">
+            <input type="number" id="minutes" value="25"> :
+            <input type="number" id="seconds" value="0">
+        </div>
+
+        <div class="timer-display" id="timer-display">25:00</div>
+
+        <div class="buttons">
+            <button class="button start" id="start">Start</button>
+            <button class="button stop" id="stop" disabled>Stop</button>
+            <button class="button save" id="save">Save</button>
+            <button class="button cancel" id="cancel">Cancel</button>
+
+        </div>
+        <!-- Save Modal -->
+        <div id="save-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>Save Session</h3>
+                <form id="save-session-form">
+                    <label for="session-subject">Subject:</label>
+                    <input type="text" id="session-subject" name="subject" required><br>
+                    <label for="session-duration">Duration (minutes):</label>
+                    <input type="text" id="session-duration" name="duration" readonly >
+                    <div class="modal-buttons">
+                        <button type="submit" class="button save">Save</button>
+                        <button type="button" class="button cancel" onclick="closeSaveModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <h2>Total Study Time</h2>
+        <p id="total-study-time" style="font-size: 1.5rem; font-weight: bold; color: #007bff;">Loading...</p>
+
+        <h2>Study Sessions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Duration</th>
+                    <th>Date</th>
+
+                </tr>
+            </thead>
+            <tbody id="sessions">
+                <% sessions.forEach((session) => { %>
+                    <tr>
+                        <td><%= session.subject %></td>
+                        <td><%= Math.floor(session.duration / 60) %> minutes</td>
+                        <td><%= new Date(session.recorded_at).toLocaleDateString() %></td>
+
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const BASE_PATH = '/usr/204';
+        const userId = "<%= session.userId %>";
+        console.log("User ID from session:", userId);
+
+
+        let timerInterval;
+        let remainingTime = 0;
+        let isRunning = false;
+
+        function updateTimerDisplay() {
+            const minutes = String(Math.floor(remainingTime / 60)).padStart(2, '0');
+            const seconds = String(remainingTime % 60).padStart(2, '0');
+
+            const sessionDurationInput = document.getElementById('session-duration');
+
+            document.getElementById('timer-display').textContent = `${minutes}:${seconds}`;
+            sessionDurationInput.value = `${minutes}:${seconds}`;
+            console.log(`Updated Timer Display: ${minutes}:${seconds}`);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval); // stop timer
+            isRunning = false;
+            console.log('Timer stopped manually.');
+            document.getElementById('start').disabled = false;
+            document.getElementById('stop').disabled = true;
+        }
+
+        function startTimer() {
+            if (isRunning) {
+                console.log('Timer is already running.');
+                return;
+            }
+
+            const minutesInput = parseInt(document.getElementById('minutes').value) || 0;
+            const secondsInput = parseInt(document.getElementById('seconds').value) || 0;
+
+            if (remainingTime === 0) {
+                remainingTime = minutesInput * 60 + secondsInput; // 초기 시간 설정
+                console.log(`Timer initialized with: ${minutesInput} minutes, ${secondsInput} seconds`);
+            }
+
+            if (remainingTime <= 0) {
+                alert('Please set a valid time.');
+                console.log('Invalid timer duration. Timer not started.');
+                return;
+            }
+
+            isRunning = true;
+            console.log('Timer started.');
+            document.getElementById('start').disabled = true;
+            document.getElementById('stop').disabled = false;
+
+            timerInterval = setInterval(() => {
+                if (remainingTime > 0) {
+                    remainingTime--;
+                    updateTimerDisplay();
+                    console.log(`Timer running. Remaining time: ${remainingTime} seconds`);
+                } else {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    alert('Time is up!');
+                    console.log('Timer completed.');
+                    document.getElementById('start').disabled = false;
+                    document.getElementById('stop').disabled = true;
+                }
+            }, 1000); // 1초마다 실행
+        }
+
+
+        function showSaveModal() {
+            const modal = document.getElementById('save-modal');
+            modal.style.display = 'flex';
+            document.getElementById('session-duration').value = Math.floor(timerDuration / 60);
+            console.log("Save modal opened");
+        }
+
+
+        function closeSaveModal() {
+            const modal = document.getElementById('save-modal');
+            modal.style.display = 'none';
+            console.log("Save modal closed");
+        }
+
+        async function fetchTotalStudyTime() {
+            try {
+                console.log("userId == ", userId);
+                console.log("Fetching total study time for user ID:", userId);
+                const response = await fetch(BASE_PATH + `/studyTime/total-study-time/${userId}`);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch total study time: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    const totalSeconds = data.totalStudyTime;
+                    const hours = Math.floor(totalSeconds / 3600);
+                    const minutes = Math.floor((totalSeconds % 3600) / 60);
+                    document.getElementById('total-study-time').textContent = `${hours} hours ${minutes} minutes`;
+                    console.log(`Total study time fetched: ${hours} hours, ${minutes} minutes`);
+                } else {
+                    throw new Error(`Failed to fetch total study time: ${data.message}`);
+                }
+            } catch (err) {
+                console.error(err.message);
+                alert('Error fetching total study time. Please try again.');
+            }
+        }
+
+        async function deleteSession(id) {
+            try {
+                console.log(`Deleting session with ID: ${id}`);
+                const response = await fetch(BASE_PATH + '/studyTime/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to delete session: ${response.status}`);
+                }
+
+                document.querySelector(`button[onclick="deleteSession('${id}')"]`).closest('tr').remove();
+                console.log(`Session with ID: ${id} deleted.`);
+                alert('Session deleted successfully.');
+            } catch (err) {
+                console.error(err.message);
+                alert('Error deleting session. Please try again.');
+            }
+        }
+
+        // 페이지 로드 시 총 공부 시간 불러오기
+        fetchTotalStudyTime();
+
+        // 버튼 이벤트 리스너 추가
+        document.getElementById('start').addEventListener('click', startTimer);
+        document.getElementById('stop').addEventListener('click', stopTimer);
+
+        // Save 버튼 클릭 시 모달 열기 이벤트 추가
+        document.getElementById('save').addEventListener('click', showSaveModal);
+
+        // Save Session 폼 제출
+        document.getElementById('save-session-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const subject = document.getElementById('session-subject').value;
+            const duration = parseInt(document.getElementById('session-duration').value, 10);
+
+            console.log("save event subject == ", subject);
+            console.log("save event duration == ", duration);
+
+            if (!subject || duration <= 0) {
+                alert('Please provide a valid subject and duration.');
+                return;
+            }
+
+            try {
+                const response = await fetch(BASE_PATH + '/studyTime/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, duration: duration * 60 }),
+                });
+
+                if (response.ok) {
+                    alert('Session saved successfully.');
+                    closeSaveModal();
+                    location.reload();
+                } else {
+                    throw new Error(`Failed to save session: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error saving session:', error.message);
+                alert('Error saving session. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>

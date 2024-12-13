@@ -1,0 +1,73 @@
+<header>
+    <nav>
+        <div class="left-links">
+            <ul>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <% if (session.userId) { %> <!-- login-->
+                    <li><a href="/user/logout">Logout</a></li>
+                <% } else { %> <!-- not login -->
+                    <li><a href="/user/login">Login</a></li>
+                <% } %>
+                <% if (!session.userId) { %> <!-- Display the "Sign Up" button only when the user is not logged in.-->
+                    <li><a href="/user/register">Sign Up</a></li>
+                <% } %>
+            </ul>
+        </div>
+        <div class="right-links">
+            <ul>
+                <% if (session.userId) { %> <!-- Display only to logged-in users. -->
+                    <li><a href="/timetable">View Timetable</a></li>
+                    <li><a href="/tasks">Manage Tasks</a></li>
+                    <li><a href="/calendar">View Calendar</a></li>
+                    <li><a href="/studyTime">Start Timer</a></li>
+                    <li><a href="/search">Search</a></li>
+                <% } %>
+            </ul>
+        </div>
+    </nav>
+</header>
+
+<style>
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #000;
+    color: white;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+}
+
+nav li {
+    display: inline-block;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+nav a:hover {
+    background-color: #333;
+}
+
+.left-links ul {
+    justify-content: flex-start;
+}
+
+.right-links ul {
+    justify-content: flex-end;
+}
+</style>

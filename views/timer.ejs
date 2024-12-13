@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Study Timer</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timer-container {
+            max-width: 400px;
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .time-input {
+            font-size: 2rem;
+            margin: 20px 0;
+        }
+
+        .time-input input {
+            width: 70px;
+            text-align: center;
+            font-size: 2rem;
+            margin: 0 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .timer-display {
+            font-size: 3rem;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .start {
+            background-color: #007bff;
+        }
+
+        .start:hover {
+            background-color: #0056b3;
+        }
+
+        .stop {
+            background-color: #dc3545;
+        }
+
+        .stop:hover {
+            background-color: #c82333;
+        }
+
+        .save {
+            background-color: #28a745;
+        }
+
+        .save:hover {
+            background-color: #218838;
+        }
+
+        .cancel {
+            background-color: #6c757d;
+        }
+
+        .cancel:hover {
+            background-color: #5a6268;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        table th, table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <div class="timer-container">
+        <h1>Study Timer</h1>
+
+        <div class="time-input">
+            <input type="number" id="minutes" value="25"> :
+            <input type="number" id="seconds" value="0">
+        </div>
+
+        <div class="timer-display" id="timer-display">25:00</div>
+
+        <div class="buttons">
+            <button class="button start" id="start">Start</button>
+            <button class="button stop" id="stop" disabled>Stop</button>
+            <button class="button save" id="save">Save</button>
+            <button class="button cancel" id="cancel">Cancel</button>
+        </div>
+
+        <h2>Total Study Time</h2>
+        <p id="total-study-time" style="font-size: 1.5rem; font-weight: bold; color: #007bff;">0 hours 0 minutes</p>
+
+        <h2>Study Sessions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Duration</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="sessions">
+                <% sessions.forEach((session) => { %>
+                    <tr>
+                        <td><%= session.subject %></td>
+                        <td><%= Math.floor(session.duration / 60) %> minutes</td>
+                        <td><%= new Date(session.recorded_at).toLocaleDateString() %></td>
+                        <td>
+                            <button class="delete-button" onclick="deleteSession('<%= session.id %>')">Delete</button>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+
+
+    </div>
+
+    <script>
+        const BASE_PATH = '/usr/204';
+        let timerInterval;
+        let remainingTime = 0;
+        let isRunning = false;
+        let elapsedTime = 0;
+
+        function updateTimerDisplay() {
+            const minutes = String(Math.floor(remainingTime / 60)).padStart(2, '0');
+            const seconds = String(remainingTime % 60).padStart(2, '0');
+            document.getElementById('timer-display').textContent = `${minutes}:${seconds}`;
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+
+            const minutesInput = parseInt(document.getElementById('minutes').value) || 0;
+            const secondsInput = parseInt(document.getElementById('seconds').value) || 0;
+            if (remainingTime === 0) {
+                remainingTime = minutesInput * 60 + secondsInput;
+            }
+
+            if (remainingTime <= 0) {
+                alert('Please set a valid time.');
+                return;
+            }
+
+            isRunning = true;
+            document.getElementById('start').disabled = true;
+            document.getElementById('stop').disabled = false;
+
+            timerInterval = setInterval(() => {
+                if (remainingTime > 0) {
+                    remainingTime--;
+                    elapsedTime++;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    alert('Time is up!');
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            document.getElementById('start').disabled = false;
+            document.getElementById('stop').disabled = true;
+            document.getElementById('save').disabled = false;
+        }
+
+        function cancelTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            remainingTime = 0;
+            elapsedTime = 0;
+            updateTimerDisplay();
+            document.getElementById('start').disabled = false;
+            document.getElementById('stop').disabled = true;
+            document.getElementById('save').disabled = true;
+        }
+
+        function saveSession() {
+            const subject = prompt('Enter subject for this session:');
+            if (!subject) {
+                alert('Subject is required to save the session.');
+                return;
+            }
+
+            fetch(BASE_PATH + '/timer/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject, duration: elapsedTime })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(newSession => {
+                const tableBody = document.getElementById('sessions');
+                const newRow = document.createElement('tr');
+
+                newRow.innerHTML = `
+                    <td>${newSession.subject}</td>
+                    <td>${Math.floor(newSession.duration / 60)} minutes</td>
+                    <td>${new Date(newSession.recorded_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="delete-button" onclick="deleteSession('${newSession.id}')">Delete</button>
+                    </td>
+                `;
+
+                tableBody.appendChild(newRow);
+                alert('Session saved successfully!');
+                cancelTimer();
+            })
+            .catch(err => {
+                console.error('Failed to save session:', err.message);
+                alert('Failed to save session.');
+            });
+        }
+
+        function deleteSession(id) {
+            fetch(BASE_PATH + '/timer/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                document.querySelector(`button[onclick="deleteSession('${id}')"]`).closest('tr').remove();
+                alert('Session deleted successfully!');
+            })
+            .catch(err => {
+                console.error('Failed to delete session:', err.message);
+                alert('Failed to delete session.');
+            });
+        }
+        function fetchTotalStudyTime() {
+            fetch(BASE_PATH + '/timer/total-study-time')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const totalSeconds = data.totalStudyTime;
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        document.getElementById('total-study-time').textContent = `${hours} hours ${minutes} minutes`;
+                    } else {
+                        console.error('Failed to fetch total study time:', data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching total study time:', err.message);
+                });
+        }
+
+        fetchTotalStudyTime(1);
+
+        document.getElementById('start').addEventListener('click', startTimer);
+        document.getElementById('stop').addEventListener('click', stopTimer);
+        document.getElementById('cancel').addEventListener('click', cancelTimer);
+        document.getElementById('save').addEventListener('click', saveSession);
+
+        updateTimerDisplay();
+    </script>
+</body>
+</html>
+

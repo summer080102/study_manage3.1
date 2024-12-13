@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .search-box button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        .search-box button:hover {
+            background-color: #0056b3;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th, table td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+    <h1>Search Page</h1>
+
+    <div class="search-container">
+        <h1>Search</h1>
+        <div class="search-box">
+            <input type="text" id="search-query" placeholder="Search for anything...">
+            <button onclick="performSearch()">Search</button>
+        </div>
+        <div class="results">
+            <h2>Results</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Details</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="results-table">
+                    <!-- Search results will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const BASE_PATH = '/usr/204';
+
+        function performSearch() {
+            const query = document.getElementById('search-query').value.trim();
+
+            if (!query) {
+                alert('Please enter a search term.');
+                return;
+            }
+
+            fetch(BASE_PATH + `/search/results?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(results => {
+                    const resultsTable = document.getElementById('results-table');
+                    resultsTable.innerHTML = '';
+
+                    if (results.length === 0) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = '<td colspan="3">No results found</td>';
+                        resultsTable.appendChild(row);
+                    } else {
+                        results.forEach(result => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${result.category}</td>
+                                <td>${result.details}</td>
+                                <td>${new Date(result.date).toLocaleDateString()}</td>
+                            `;
+                            resultsTable.appendChild(row);
+                        });
+                    }
+                })
+                .catch(() => {
+                    alert('Failed to fetch search results.');
+                });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <title>Weekly Timetable</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .timetable {
+            display: grid;
+            grid-template-columns: 100px repeat(7, 1fr);
+            gap: 1px;
+            background-color: #ccc;
+        }
+        .timetable > div {
+            background-color: #fff;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .header {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+        .subject {
+            padding: 5px;
+            font-size: 14px;
+            color: black;
+            border-radius: 5px;
+        }
+        .add-button, .edit-button, .delete-button {
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .add-button {
+            background-color: #007bff;
+            color: white;
+        }
+        .edit-button {
+            background-color: #ffc107;
+            color: white;
+        }
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            background: white;
+            padding: 20px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        .modal.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <h1>Weekly Timetable</h1>
+
+    <div class="timetable">
+        <div class="header">Time</div>
+        <% ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach(day => { %>
+            <div class="header"><%= day %></div>
+        <% }) %>
+
+        <% for (let hour = 8; hour <= 20; hour++) { %>
+            <div><%= hour %>:00</div>
+            <% ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach(day => { %>
+                <div>
+                    <% let found = false; %>
+                    <% timetable.forEach(entry => { %>
+                        <% if (entry.day === day && entry.time === `${hour}:00`) { %>
+                            <div class="subject">
+                                <%= entry.subject %><br>
+                                <small><%= entry.activity %></small>
+                            </div>
+                            <button class="edit-button" onclick="showEditModal('<%= entry.id %>', '<%= entry.day %>', '<%= entry.time %>', '<%= entry.subject %>', '<%= entry.activity %>')">Edit</button>
+                            <form action="/timetable/delete" method="POST" style="display:inline;">
+                                <input type="hidden" name="id" value="<%= entry.id %>">
+                                <button type="submit" class="delete-button">Delete</button>
+                            </form>
+                            <% found = true; %>
+                        <% } %>
+                    <% }) %>
+                    <% if (!found) { %>
+                        <button class="add-button" onclick="showAddModal('<%= day %>', '<%= hour %>:00')">+</button>
+                    <% } %>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+
+    <div class="modal" id="entry-modal">
+        <h3 id="modal-title">Add Timetable Entry</h3>
+        <form id="entry-form">
+            <input type="hidden" name="id" id="modal-id">
+            <input type="hidden" name="day" id="modal-day">
+            <input type="hidden" name="time" id="modal-time">
+            <label for="subject">Subject:</label>
+            <input type="text" name="subject" id="modal-subject" required>
+            <label for="activity">Activity:</label>
+            <input type="text" name="activity" id="modal-activity" required>
+            <div style="margin-top: 10px;">
+                <button type="submit" class="add-button" id="modal-submit-button">Save</button>
+                <button type="button" class="add-button" style="background-color: #dc3545;" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const BASE_PATH = '/usr/204';
+        // 20241211
+        document.getElementById('entry-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const data = Object.fromEntries(form.entries());
+            const endpoint = data.id ? '/timetable/edit' : '/timetable/add';
+
+            console.log("form == ", form);
+            console.log("data == ", data);
+            console.log("endpoint == ", endpoint);
+
+            try {
+                const response = await fetch(BASE_PATH + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        await fetchTimetable(); // 데이터를 다시 불러와 화면 갱신
+                        closeModal(); // 모달 닫기
+                    } else {
+                        alert(result.error || 'Failed to save entry.');
+                    }
+                } else {
+                    alert(`Failed to save entry. Status: ${response.status}`);
+                }
+            } catch (err) {
+                console.error('Fetch error:', err);
+                alert('Network error occurred.');
+            }
+        });
+
+        async function fetchTimetable() {
+            try {
+                const response = await fetch(BASE_PATH + '/timetable/data', { method: 'GET' });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        updateTimetable(result.timetable); 
+                    } else {
+                        console.error('Failed to fetch timetable:', result.error);
+                        alert('Failed to load timetable.');
+                    }
+                } else {
+                    console.error('Failed to fetch timetable. Status:', response.status);
+                    alert('Failed to load timetable.');
+                }
+            } catch (err) {
+                console.error('Fetch error:', err);
+                alert('Network error occurred.');
+            }
+        }
+
+        function updateTimetable(timetable) {
+            const timetableContainer = document.querySelector('.timetable');
+            console.log("timetableContainer.innerHTML == ",timetableContainer.innerHTML); 
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const BASE_PATH = '/usr/204';
+
+            // regenerate table header
+            let html = '<div class="header">Time</div>';
+            days.forEach(day => {
+                html += `<div class="header">${day}</div>`;
+            });
+
+            // rendering timetable
+            for (let hour = 8; hour <= 20; hour++) {
+                const hourFormatted = String(hour).padStart(2, '0'); 
+                html += `<div>${hourFormatted}:00</div>`; 
+                days.forEach(day => {
+                    
+                    const entries = timetable.filter(t => t.day === day && t.time === `${hourFormatted}:00:00`);
+
+                    if (entries.length > 0) {
+                       
+                        html += `<div>`;
+                        entries.forEach(entry => {
+                            html += `
+                                <div class="subject">
+                                    <span>${entry.subject}</span><br>
+                                    <small>${entry.activity}</small>
+                                </div>
+                                <button class="edit-button" onclick="showEditModal('${entry.id}', '${entry.day}', '${entry.time}', '${entry.subject}', '${entry.activity}')">Edit</button>
+                                <form action="${BASE_PATH}/timetable/delete" method="POST" style="display:inline;">
+                                    <input type="hidden" name="id" value="${entry.id}">
+                                    <button type="submit" class="delete-button">Delete</button>
+                                </form>
+                            `;
+                        });
+                        html += `</div>`;
+                    } else {
+                        
+                        html += `
+                            <div>
+                                <button class="add-button" onclick="showAddModal('${day}', '${hourFormatted}:00:00')">+</button>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            timetableContainer.innerHTML = html; 
+        }
+
+        function showAddModal(day, time) {
+            document.getElementById('modal-title').innerText = 'Add Timetable Entry';
+            document.getElementById('modal-id').value = '';
+            document.getElementById('modal-day').value = day;
+            document.getElementById('modal-time').value = time;
+            document.getElementById('modal-subject').value = '';
+            document.getElementById('modal-activity').value = '';
+            document.getElementById('entry-modal').classList.add('show');
+        }
+
+        function showEditModal(id, day, time, subject, activity) {
+            document.getElementById('modal-title').innerText = 'Edit Timetable Entry';
+            document.getElementById('modal-id').value = id;
+            document.getElementById('modal-day').value = day;
+            document.getElementById('modal-time').value = time;
+            document.getElementById('modal-subject').value = subject;
+            document.getElementById('modal-activity').value = activity;
+            document.getElementById('entry-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-id').value = '';
+            document.getElementById('modal-day').value = '';
+            document.getElementById('modal-time').value = '';
+            document.getElementById('modal-subject').value = '';
+            document.getElementById('modal-activity').value = '';
+            document.getElementById('entry-modal').classList.remove('show');
+        }
+
+       
+        document.addEventListener('DOMContentLoaded', async () => {
+            const timetable = await fetchTimetable(); // API 
+        });
+
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

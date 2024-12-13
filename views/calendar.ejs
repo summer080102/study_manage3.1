@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Calendar</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .calendar-container {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calendar-header h2 {
+            margin: 0;
+        }
+        .calendar-header button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .calendar-header button:hover {
+            background-color: #0056b3;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: #ccc;
+        }
+        .calendar > div {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            text-align: center;
+            padding: 10px;
+            position: relative;
+            height: 100px;
+            overflow-y: auto;
+        }
+        .calendar .header {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            height: auto;
+        }
+        .event {
+            background-color: #007bff;
+            color: white;
+            padding: 5px;
+            margin: 2px 0;
+            border-radius: 5px;
+            font-size: 12px;
+            position: relative;
+        }
+        .event .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+        }
+        .add-button {
+            margin-top: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .add-button:hover {
+            background-color: #0056b3;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            background: white;
+            padding: 20px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        .modal.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <button onclick="navigateMonth(-1)">Previous</button>
+            <h2><%= monthName %> <%= year %></h2>
+            <button onclick="navigateMonth(1)">Next</button>
+        </div>
+
+        <div class="calendar">
+            <% ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach(day => { %>
+                <div class="header"><%= day %></div>
+            <% }) %>
+
+            <% for (let i = 0; i < firstDayOfMonth; i++) { %>
+                <div></div>
+            <% } %>
+            <% for (let day = 1; day <= daysInMonth; day++) { %>
+                <div id="day-<%= day %>">
+                    <strong><%= day %></strong>
+                    <% events
+                        .filter(event => new Date(event.date).getDate() === day)
+                        .forEach(event => { %>
+                        <div class="event">
+                            <%= event.title %>
+                            <button class="delete-button" onclick="deleteEvent('<%= event.id %>' )">x</button>
+                        </div>
+                    <% }) %>
+                    <button class="add-button" onclick="showAddModal('<%= year %>-<%= month + 1 %>-<%= day %>')">+</button>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="event-modal">
+        <h3 id="modal-title">Add Event</h3>
+        <form id="event-form">
+            <input type="hidden" name="id" id="modal-id">
+            <input type="hidden" name="date" id="modal-date">
+            <label for="title">Event Title:</label>
+            <input type="text" name="title" id="modal-title-input" required>
+            <div style="margin-top: 10px;">
+                <button type="submit" class="add-button" id="modal-submit-button">Save</button>
+                <button type="button" class="add-button" style="background-color: #dc3545;" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const BASE_PATH = '/usr/204';
+
+        // Navigate to another month
+        function navigateMonth(direction) {
+            const newMonth = parseInt('<%= month %>') + direction;
+            const newYear = newMonth < 0 ? '<%= year - 1 %>' : newMonth > 11 ? '<%= year + 1 %>' : '<%= year %>';
+            const adjustedMonth = (newMonth + 12) % 12;
+            window.location.href = `/calendar?month=${adjustedMonth}&year=${newYear}`;
+        }
+
+        // Show Add Event Modal
+        function showAddModal(date) {
+            document.getElementById('modal-title').innerText = 'Add Event';
+            document.getElementById('modal-id').value = '';
+            document.getElementById('modal-date').value = date;
+            document.getElementById('modal-title-input').value = '';
+            document.getElementById('event-modal').classList.add('show');
+        }
+
+        // Close Modal
+        function closeModal() {
+            document.getElementById('event-modal').classList.remove('show');
+        }
+
+        // Handle Save Button
+        document.getElementById('event-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const data = Object.fromEntries(form.entries());
+
+            const endpoint = data.id ? '/calendar/edit' : '/calendar/add';
+
+            const response = await fetch(BASE_PATH + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+
+            if (response.ok) {
+                const newEvent = await response.json();
+                addEventToCalendar(newEvent); // Dynamically update the calendar
+                closeModal();
+            } else {
+                alert('Failed to save event.');
+            }
+        });
+
+        // Add Event to Calendar
+        function addEventToCalendar(event) {
+            const day = new Date(event.date).getDate();
+            const dayCell = document.getElementById(`day-${day}`);
+            if (dayCell) {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                eventDiv.textContent = event.title;
+                eventDiv.setAttribute('data-id', event.id);
+
+                // Add delete button to event
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = 'x';
+                deleteButton.onclick = () => deleteEvent(event.id);
+                eventDiv.appendChild(deleteButton);
+
+                dayCell.insertBefore(eventDiv, dayCell.querySelector('.add-button'));
+            }
+        }
+
+        // Delete Event
+        async function deleteEvent(id) {
+            const response = await fetch(BASE_PATH + '/calendar/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+
+            if (response.ok) {
+                // Dynamically remove the event from the DOM
+                const eventElement = document.querySelector(`.event[data-id='${id}']`);
+                if (eventElement) {
+                    eventElement.remove();
+                }
+            } else {
+                alert('Failed to delete event.');
+            }
+        }
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

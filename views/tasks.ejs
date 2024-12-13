@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Tasks</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .tasks-container {
+            display: flex;
+            gap: 20px;
+        }
+        .task-column {
+            flex: 1;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .task-column h2 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .task {
+            background-color: #fff;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .task form {
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .task-actions {
+            margin-top: 10px;
+        }
+        .task-actions button {
+            margin-right: 5px;
+        }
+        .add-task {
+            margin-top: 20px;
+            padding: 10px;
+            text-align: center;
+            border: 1px dashed #ccc;
+            cursor: pointer;
+        }
+        .add-task:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <h1>Manage Tasks</h1>
+    <div class="tasks-container">
+        <% ['Not Started', 'In Progress', 'Completed'].forEach((status) => { %>
+            <div class="task-column">
+                <h2><%= status %></h2>
+                <% tasks
+                    .filter(task => task.progress === status)
+                    .forEach(task => { %>
+                    <div class="task">
+                        <strong><%= task.subject %></strong><br>
+                        <small>Due: <%= task.due_date %></small><br>
+                        <p><%= task.type %></p>
+                        <div class="task-actions">
+                            <!-- Edit Form -->
+                            <form action="/tasks/edit" method="POST">
+                                <input type="hidden" name="id" value="<%= task.id %>">
+                                <select name="progress" required>
+                                    <option value="Not Started" <%= task.progress === 'Not Started' ? 'selected' : '' %>>Not Started</option>
+                                    <option value="In Progress" <%= task.progress === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+                                    <option value="Completed" <%= task.progress === 'Completed' ? 'selected' : '' %>>Completed</option>
+                                </select>
+                                <button type="submit">Update</button>
+                            </form>
+                            <!-- Delete Form -->
+                            <form action="/tasks/delete" method="POST">
+                                <input type="hidden" name="id" value="<%= task.id %>">
+                                <button type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                <% }); %>
+                <!-- Add New Task -->
+                <% if (status === 'Not Started') { %>
+                    <div class="add-task" onclick="showAddTaskModal()">+ Add Task</div>
+                <% } %>
+            </div>
+        <% }) %>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div id="add-task-modal" style="display: none;">
+        <h3>Add New Task</h3>
+        <form action="/tasks/add" method="POST">
+            <label for="subject">Subject:</label>
+            <input type="text" name="subject" required>
+            <label for="type">Type:</label>
+            <select name="type" required>
+                <option value="Assignment">Assignment</option>
+                <option value="Exam">Exam</option>
+            </select>
+            <label for="due_date">Due Date:</label>
+            <input type="date" name="due_date" required>
+            <label for="progress">Progress:</label>
+            <select name="progress" required>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+            </select>
+            <button type="submit">Add</button>
+            <button type="button" onclick="closeAddTaskModal()">Cancel</button>
+        </form>
+    </div>
+
+    <script>
+        function showAddTaskModal() {
+            document.getElementById('add-task-modal').style.display = 'block';
+        }
+
+        function closeAddTaskModal() {
+            document.getElementById('add-task-modal').style.display = 'none';
+        }
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+</html>
